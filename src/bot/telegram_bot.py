@@ -8,6 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from config.env_config import BOT_TOKEN, CHAT_ID
 from src.utils.telegram_client import send_message, log, create_main_keyboard
 from src.pc_control.pc_control import get_pc_status
+from src.monitoring.get_report import get_detailed_report
 LAST_UPDATE_ID = 0
 
 def handle_message(message):
@@ -15,7 +16,7 @@ def handle_message(message):
     log(f"Received message: {text}")
     
     if text == "📊 Get Report":
-        send_message(f"📊 *System Report*\n\n🟢 OrangePi Online\n🖥️ All services running\n⏰ {time.strftime('%H:%M:%S')}")
+        send_message(get_detailed_report())
     
     elif "PC" in text:
         pc_control_path = os.path.join(os.path.dirname(__file__), '..', 'pc_control', 'pc_control.py')
