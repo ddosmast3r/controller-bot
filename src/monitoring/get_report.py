@@ -87,12 +87,28 @@ def get_detailed_report():
         except:
             external_ip = "Unknown"
         
-        # Check services
-        services = {
-            'nginx': '🟢',
-            'odissey.space': '🟡',
-            'PacketBot': '🟢'
-        }
+        # Check services status
+        def check_service(service_name):
+            try:
+                result = subprocess.run(['systemctl', 'is-active', service_name], 
+                                      capture_output=True, text=True, timeout=3)
+                return '🟢' if result.returncode == 0 else '🔴'
+            except:
+                return '❓'
+        
+        nginx_status = check_service('nginx')
+        
+        # Check for suspicious processes (high CPU usage or unusual names)
+        suspicious_count = 0
+        for line in ps_lines:
+            if line.strip():
+                parts = line.split()
+                if len(parts) > 10:
+                    cpu_percent = float(parts[2]) if parts[2].replace('.', '').isdigit() else 0
+                    process_name = parts[10].lower()
+                    # Flag processes with >50% CPU or suspicious names
+                    if cpu_percent > 50 or any(suspicious in process_name for suspicious in ['miner', 'crypto', 'coin', 'bot', 'ddos', 'hack']):
+                        suspicious_count += 1
         
         # Format timestamp
         now = datetime.datetime.now()
@@ -120,12 +136,10 @@ def get_detailed_report():
 🌍 External IP: {external_ip}
 
 🔧 *Services Status*
-🟢 Nginx: active
-🟡 odissey.space: active (Response: timeout)
-🟢 PacketBot: active
+{nginx_status} Nginx: {'active' if nginx_status == '🟢' else 'inactive'}
 
 🔒 *Security*
-Suspicious processes: 0
+Suspicious processes: {suspicious_count}
 
 📅 {timestamp}"""
         
