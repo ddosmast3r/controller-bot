@@ -32,7 +32,13 @@ def get_detailed_report():
         # Get CPU usage
         cpu_usage = subprocess.check_output(['top', '-bn1'], text=True, timeout=10)
         cpu_line = [line for line in cpu_usage.split('\n') if 'Cpu(s)' in line or '%Cpu(s)' in line][0]
-        cpu_idle = float([x for x in cpu_line.split() if 'id' in x][0].replace('%id,', '').replace('id,', ''))
+        # Parse idle CPU: look for pattern like "97.1 id"
+        import re
+        idle_match = re.search(r'(\d+\.\d+)\s+id', cpu_line)
+        if idle_match:
+            cpu_idle = float(idle_match.group(1))
+        else:
+            cpu_idle = 0.0
         cpu_used = 100.0 - cpu_idle
         
         # Get top processes
