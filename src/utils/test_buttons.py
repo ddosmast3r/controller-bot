@@ -1,14 +1,12 @@
-#\!/usr/bin/env python3
-import requests
+#!/usr/bin/env python3
 import json
-import time
+import sys
+import os
 
-BOT_TOKEN = "7964664704:AAFFik_PyRFt1OogdZ7n0bzl8NZ1jv2KpIQ"
-CHAT_ID = "138754523"
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from src.utils.telegram_client import send_message
 
 def send_test_message():
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    
     keyboard = {
         "inline_keyboard": [
             [{"text": "🧪 Test Report", "callback_data": "report"},
@@ -17,16 +15,23 @@ def send_test_message():
         ]
     }
     
-    data = {
-        "chat_id": CHAT_ID,
-        "text": "🧪 *Button Test Message*\n\nClick any button to test functionality:\n\n📊 **Enhanced CPU Monitoring Now Available:**\n• 4 CPU cores monitored\n• Real-time usage: 0.9%\n• Temperature: 67.5°C\n• Top processes tracked\n\nButtons should work now!",
-        "parse_mode": "Markdown",
-        "reply_markup": json.dumps(keyboard)
-    }
+    text = (
+        "🧪 *Button Test Message*\n\n"
+        "Click any button to test functionality:\n\n"
+        "📊 **Enhanced CPU Monitoring Now Available:**\n"
+        "• 4 CPU cores monitored\n"
+        "• Real-time usage: 0.9%\n"
+        "• Temperature: 67.5°C\n"
+        "• Top processes tracked\n\n"
+        "Buttons should work now!"
+    )
     
-    response = requests.post(url, data=data)
-    print(f"Test message sent: {response.status_code}")
-    print(f"Response: {response.json()}")
+    response = send_message(text, keyboard)
+    if response:
+        print(f"Test message sent: 200")
+        print(f"Response: {response}")
+    else:
+        print("Failed to send test message")
 
 if __name__ == "__main__":
     send_test_message()

@@ -1,4 +1,4 @@
-#\!/usr/bin/env python3
+#!/usr/bin/env python3
 import subprocess
 import sys
 import os
@@ -8,15 +8,25 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from config.env_config import PC_MAC, PC_IP
 
 def check_pc():
-    try:
-        result = subprocess.run(['ping', '-c', '3', '-W', '2', PC_IP], 
-                              capture_output=True, timeout=10)
-        if result.returncode == 0:
-            print('🟢 Online')
-        else:
-            print('🔴 Offline')
-    except:
+    """Check PC status with detailed output"""
+    status = get_pc_status()
+    if status == '🟢':
+        print('🟢 Online')
+    elif status == '🔴':
+        print('🔴 Offline')
+    else:
         print('❓ Unknown')
+
+def get_pc_status():
+    """Get PC status as emoji - for use by other modules"""
+    try:
+        result = subprocess.run(['ping', '-c', '1', '-W', '2', PC_IP], 
+                              capture_output=True, timeout=5)
+        return '🟢' if result.returncode == 0 else '🔴'
+    except subprocess.TimeoutExpired:
+        return '❓'
+    except Exception:
+        return '❓'
 
 def wake_pc():
     try:

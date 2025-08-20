@@ -1,13 +1,11 @@
-#\!/usr/bin/env python3
-import requests
+#!/usr/bin/env python3
 import subprocess
-import json
 import datetime
 import os
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from config.env_config import BOT_TOKEN, CHAT_ID
+from src.utils.telegram_client import send_message
 
 def get_detailed_report():
     """Generate detailed system report in the expected format"""
@@ -132,22 +130,12 @@ Suspicious processes: 0
 
 def send_report():
     """Send report to Telegram"""
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = {
-        "chat_id": CHAT_ID,
-        "text": get_detailed_report(),
-        "parse_mode": "Markdown"
-    }
-    
-    try:
-        response = requests.post(url, data=data, timeout=10)
-        if response.status_code == 200:
-            print("Report sent: 200")
-        else:
-            print(f"Report failed: {response.status_code}")
-        return response.status_code
-    except Exception as e:
-        print(f"Error sending report: {e}")
+    response = send_message(get_detailed_report())
+    if response:
+        print("Report sent: 200")
+        return 200
+    else:
+        print("Report failed")
         return 0
 
 if __name__ == "__main__":
