@@ -1,0 +1,248 @@
+#\!/usr/bin/env python3
+import json
+import requests
+import subprocess
+import time
+import threading
+import sys
+
+BOT_TOKEN = "7964664704:AAFFik_PyRFt1OogdZ7n0bzl8NZ1jv2KpIQ"
+CHAT_ID = "138754523"
+LAST_UPDATE_ID = 0
+
+def log(message):
+    """Log message with timestamp"""
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] {message}")
+    sys.stdout.flush()
+
+def send_message(text, reply_markup=None):
+    """Send message to Telegram"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    data = {
+        "chat_id": CHAT_ID,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    if reply_markup:
+        data["reply_markup"] = json.dumps(reply_markup)
+    
+    try:
+        response = requests.post(url, data=data, timeout=10)
+        log(f"Message sent: {response.status_code}")
+        return response.json()
+    except Exception as e:
+        log(f"Error sending message: {e}")
+        return None
+
+def answer_callback_query(callback_query_id, text=None):
+    """Answer callback query"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery"
+    data = {"callback_query_id": callback_query_id}
+    if text:
+        data["text"] = text
+    try:
+        response = requests.post(url, data=data, timeout=10)
+        log(f"Callback answered: {text or 'OK'} - Status: {response.status_code}")
+    except Exception as e:
+        log(f"Error answering callback: {e}")
+
+def get_system_report():
+    """Generate system report using Python script"""
+    try:
+        # Run the Python report generator
+        result = subprocess.run(
+            ["python3", "/opt/monitoring/get_report.py"], 
+            capture_output=True, 
+            text=True, 
+            timeout=30,
+            cwd="/opt/monitoring"
+        )
+        
+        log(f"Report script exit code: {result.returncode}")
+        if result.stderr:
+            log(f"Report stderr: {result.stderr}")
+        if result.stdout:
+            log(f"Report stdout: {result.stdout}")
+            
+        if result.returncode == 0:
+            log("System report sent successfully")
+            return True
+        else:
+            log(f"Report script failed with exit code: {result.returncode}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        log("Report script timed out")
+        return False
+    except Exception as e:
+        log(f"Error running report script: {e}")
+        return False
+
+def reboot_system():
+    """Reboot the system"""
+    send_message("🔄 *Rebooting OrangePi...*\n\nThe system will restart in 10 seconds.\nBot will reconnect automatically after reboot.")
+    time.sleep(2)
+    subprocess.run(["sudo", "reboot"])
+
+def shutdown_system():
+    """Shutdown the system"""
+    send_message("⚡ *Shutting down OrangePi...*\n\nThe system will power off in 10 seconds.\nYou will need physical access to power it back on.")
+    time.sleep(2)
+    subprocess.run(["sudo", "shutdown", "-h", "now"])
+
+def create_main_keyboard():
+    """Create main keyboard"""
+    return {
+        "inline_keyboard": [
+            [{"text": "📊 Get Report", "callback_data": "report"},
+             {"text": "🔄 Reboot", "callback_data": "reboot"}],
+            [{"text": "⚡ Shutdown", "callback_data": "shutdown"}]
+        ]
+    }
+
+def create_confirm_keyboard(action):
+    """Create confirmation keyboard"""
+    return {
+        "inline_keyboard": [
+            [{"text": f"✅ Yes, {action}", "callback_data": f"confirm_{action}"},
+             {"text": "❌ Cancel", "callback_data": "cancel"}]
+        ]
+    }
+
+def process_callback(callback_data, callback_query_id):
+    """Process callback button press"""
+    log(f"Processing callback: {callback_data}")
+    
+    try:
+        if callback_data == "report":
+            answer_callback_query(callback_query_id, "Generating report...")
+            
+            if get_system_report():
+                # Don't send confirmation message, the report itself was sent
+                log("Report delivered successfully")
+            else:
+                send_message("❌ *Error generating system report*\n\nPlease check system logs or try again.")
+            
+        elif callback_data == "reboot":
+            answer_callback_query(callback_query_id)
+            send_message(
+                "🔄 *Reboot Confirmation*\n\n⚠️ Are you sure you want to reboot the OrangePi?\n\nThis will restart all services and disconnect you temporarily.\nThe bot will reconnect automatically after reboot.",
+                create_confirm_keyboard("reboot")
+            )
+            
+        elif callback_data == "shutdown":
+            answer_callback_query(callback_query_id)
+            send_message(
+                "⚡ *Shutdown Confirmation*\n\n⚠️ Are you sure you want to shutdown the OrangePi?\n\nYou will need physical access to power it back on.",
+                create_confirm_keyboard("shutdown")
+            )
+            
+        elif callback_data == "confirm_reboot":
+            answer_callback_query(callback_query_id, "Rebooting system...")
+            threading.Thread(target=reboot_system).start()
+            
+        elif callback_data == "confirm_shutdown":
+            answer_callback_query(callback_query_id, "Shutting down system...")
+            threading.Thread(target=shutdown_system).start()
+            
+        elif callback_data == "cancel":
+            answer_callback_query(callback_query_id, "Operation cancelled")
+            send_message("❌ *Operation Cancelled*\n\nReturning to main menu.", create_main_keyboard())
+            
+    except Exception as e:
+        log(f"Error processing callback {callback_data}: {e}")
+        answer_callback_query(callback_query_id, "Error occurred")
+        send_message(f"❌ *Error processing {callback_data}*\n\nPlease try again.")
+
+def handle_message(message):
+    """Handle incoming messages"""
+    text = message.get("text", "")
+    log(f"Received message: {text}")
+    
+    if text.startswith("/start") or text.lower() in ["hi", "hello", "help", "menu"]:
+        send_message(
+            "🍊 *OrangePi Remote Control Bot*\n\n" +
+            "Welcome\! Use the buttons below to manage your OrangePi:\n\n" +
+            "📊 *Get Report* - Current system status with CPU load\n" +
+            "🔄 *Reboot* - Restart the system\n" +
+            "⚡ *Shutdown* - Power off the system\n\n" +
+            "The bot sends detailed reports every 2 hours automatically.\n" +
+            "CPU usage, memory, temperature, and services are monitored.",
+            create_main_keyboard()
+        )
+
+def get_updates():
+    """Get updates from Telegram"""
+    global LAST_UPDATE_ID
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+    params = {
+        "offset": LAST_UPDATE_ID + 1, 
+        "timeout": 30,
+        "allowed_updates": ["message", "callback_query"]
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=35)
+        data = response.json()
+        
+        if data.get("ok"):
+            updates = data.get("result", [])
+            if updates:
+                log(f"Received {len(updates)} updates")
+                
+            for update in updates:
+                LAST_UPDATE_ID = update["update_id"]
+                log(f"Processing update {LAST_UPDATE_ID}: {list(update.keys())}")
+                
+                # Handle messages
+                if "message" in update:
+                    message = update["message"]
+                    if str(message["chat"]["id"]) == CHAT_ID:
+                        handle_message(message)
+                
+                # Handle callback queries (button presses)
+                if "callback_query" in update:
+                    callback_query = update["callback_query"]
+                    if str(callback_query["message"]["chat"]["id"]) == CHAT_ID:
+                        log(f"Callback query data: {callback_query['data']}")
+                        process_callback(
+                            callback_query["data"],
+                            callback_query["id"]
+                        )
+        else:
+            log(f"Error from Telegram API: {data}")
+            
+    except requests.exceptions.Timeout:
+        # This is normal for long polling
+        pass
+    except Exception as e:
+        log(f"Error getting updates: {e}")
+        time.sleep(5)
+
+def main():
+    """Main bot loop"""
+    log("🤖 OrangePi Telegram Bot started (REPORT DELIVERY FIXED)")
+    
+    # Send startup message
+    send_message(
+        "🟢 *OrangePi Bot Online (REPORT FIXED)*\n\n" +
+        "✅ Report delivery completely fixed\!\n" +
+        "✅ You will get the actual report now\!\n" +
+        "✅ Enhanced CPU monitoring\n\n" +
+        "Try the buttons below:",
+        create_main_keyboard()
+    )
+    
+    while True:
+        try:
+            get_updates()
+        except KeyboardInterrupt:
+            log("🛑 Bot stopped by user")
+            break
+        except Exception as e:
+            log(f"Error in main loop: {e}")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,40 @@
+# Sensitive configuration files
+.env
+config/.env
+
+# Archive folder
+archive/
+
+# Bot tokens and credentials
+*token*
+*TOKEN*
+bot_config.*
+credentials.*
+
+# Logs
+*.log
+logs/
+/tmp/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
