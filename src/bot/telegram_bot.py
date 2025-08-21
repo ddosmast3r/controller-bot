@@ -15,26 +15,29 @@ def handle_message(message):
     text = message.get("text", "")
     log(f"Received message: {text}")
     
+    pc_status = get_pc_status()
+    keyboard = create_main_keyboard(pc_status)
+    
     if text == "📊 Get Report":
-        send_message(get_detailed_report())
+        send_message(get_detailed_report(), keyboard)
     
     elif "PC" in text:
         pc_control_path = os.path.join(os.path.dirname(__file__), '..', 'pc_control', 'pc_control.py')
         subprocess.run(["python3", pc_control_path, "wake"])
-        send_message("⚡ *Wake-on-LAN sent!*\n\nMagic packet sent to your PC.")
+        send_message("⚡ *Wake-on-LAN sent!*\n\nMagic packet sent to your PC.", keyboard)
     
     elif text == "🔄 Reboot Server":
-        send_message("🔄 *Reboot Confirmation*\n\nType: `confirm reboot` to restart OrangePi")
+        send_message("🔄 *Reboot Confirmation*\n\nType: `confirm reboot` to restart OrangePi", keyboard)
     
     elif text == "💀 Shutdown Server":
-        send_message("🔴 *Shutdown Confirmation*\n\nType: `confirm shutdown` to power off OrangePi")
+        send_message("🔴 *Shutdown Confirmation*\n\nType: `confirm shutdown` to power off OrangePi", keyboard)
     
     elif "confirm reboot" in text.lower():
-        send_message("🔄 Rebooting OrangePi... Bot will restart automatically.")
+        send_message("🔄 Rebooting OrangePi... Bot will restart automatically.", keyboard)
         subprocess.run(["sudo", "reboot"])
     
     elif "confirm shutdown" in text.lower():
-        send_message("🔴 Shutting down OrangePi... Goodbye!")
+        send_message("🔴 Shutting down OrangePi... Goodbye!", keyboard)
         subprocess.run(["sudo", "shutdown", "-h", "now"])
     
     elif text.startswith("/start") or text.lower() in ["hi", "hello", "help", "menu"]:
